@@ -7,6 +7,7 @@
     "dev": "vite",
     "build": "tsc -p tsconfig.json && vite build",
     "build:portal": "tsc -p tsconfig.json && vite build --mode portal && cd dist-portal && zip -qrFS ../rainline-portal.zip . && cd .. && node tools/portal-check.ts",
+    "build:playgama": "tsc -p tsconfig.json && vite build --mode playgama && cd dist-playgama && zip -qrFS ../rainline-playgama.zip . && cd .. && node tools/portal-check.ts playgama",
     "preview": "vite preview",
     "typecheck": "tsc -p tsconfig.json",
     "test": "node --test 'sim/**/*.test.ts' 'src/**/*.test.ts' 'test/**/*.test.ts'",

@@ -57,7 +57,7 @@ export interface Hud {
 
 const KEYS: readonly (readonly [string, string])[] = [
   ['W / ↑', 'Throttle'], ['S / ↓', 'Brake'], ['A D / ← →', 'Steer'], ['Space', 'Handbrake'],
-  ['Shift', 'Nitro'], ['Mouse', 'Look around'], ['R', 'Reset'], ['T', 'Weather'], ['M', 'Mute'], ['H', 'Horn'], ['G', 'Graphics'], ['Esc', 'Lobby'],
+  ['Shift', 'Nitro'], ['Mouse', 'Look around'], ['R', 'Reset'], ['T', 'Weather'], ['M', 'Mute'], ['H', 'Horn'], ['G', 'Graphics'], ['Esc / P', 'Lobby'],
 ];
 
 const LOOK_BACK_KEYS: readonly (readonly [string, string])[] = [['Right click / C', 'Look back']];

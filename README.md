@@ -54,7 +54,7 @@ Open http://localhost:5183. Click **Enter**, then **Drive**. A plain clone runs 
 | M | Mute or unmute |
 | H | Horn |
 | G | Next graphics quality: Ultra, High, Medium, Low, Minimum, Auto |
-| Esc | Back to the lobby |
+| Esc or P | Back to the lobby |
 
 A gamepad works too: left stick steers, the triggers are throttle and brake, A is the handbrake, B or X is nitro.
 
@@ -119,6 +119,19 @@ npm run build:portal
 
 Writes `dist-portal/` and `rainline-portal.zip` for game portals: relative paths, no `public/local/` files, no share tags or links to outside addresses. `tools/portal-check.ts` fails the build if any of those slip in.
 
+### Playgama build
+
+```bash
+npm run build:playgama
+```
+
+The portal build plus Playgama's Bridge SDK, in `dist-playgama/` and `rainline-playgama.zip`. Only this mode (`PORTAL_BUILDS` in `src/portal/builds.ts`) adds these:
+
+- The Bridge script from `bridge.playgama.com` is the first script in `<head>`, and `playgama-bridge-config.json` sits beside `index.html`. It is the only outside address `tools/portal-check.ts` lets through in this build.
+- `src/portal/playgama.ts` starts the Bridge, waiting 8 seconds at most; without it the game runs as in the plain portal build. It sends `game_ready` once the lobby can be used and asks for an interstitial when a race ends back in the lobby, unless the page is hidden or the Bridge has paused the game. The Bridge decides whether an ad shows.
+- The world and the sound stop while an ad is open or the Bridge reports a pause.
+- P opens the lobby as well as Esc in every build, because Playgama keeps Esc for leaving full screen.
+
 ## Deploy
 
 ```bash
@@ -144,7 +157,8 @@ npx wrangler deploy
 | `src/hud/` | The lobby and the in-game HUD. |
 | `blender/` | `build_car.py`, which generates the car model (`npm run car`). |
 | `public/` | Models, textures, the sky, sounds. `public/local/` (git-ignored) holds the private assets when present. |
-| `tools/` | `portal-check.ts`, run by `npm run build:portal`. |
+| `src/portal/` | Portal builds and the Playgama Bridge: which build adds what, `game_ready`, interstitials and pauses. |
+| `tools/` | `portal-check.ts`, run by `npm run build:portal` and `npm run build:playgama`. |
 
 Credits and licences for every asset are in [ASSETS.md](ASSETS.md); licence texts are in `licenses/`.
 

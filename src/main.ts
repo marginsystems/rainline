@@ -21,6 +21,8 @@ import { createTouchControls } from './hud/touch-controls.ts';
 import { createQualityGovernor, observeFrame, QUALITY_TIERS, setManualLevel, tierAt } from './render/quality.ts';
 import { UNREFLECTED_LAYER } from './render/reflection.ts';
 import { createStage } from './render/stage.ts';
+import { NO_PORTAL, type PortalSdk } from './portal/portal.ts';
+import { startPortal } from './portal/start-portal.ts';
 import './styles/hud.css';
 import { installSpringVariables, springSeconds, UI_SPRINGS } from './ui-spring.ts';
 import { CarDamage } from './world/car-damage.ts';
@@ -113,6 +115,10 @@ function element<T extends HTMLElement>(selector: string, type: new () => T): T 
 
 async function boot(): Promise<void> {
   installSpringVariables(document.documentElement.style);
+  let portal: PortalSdk = NO_PORTAL;
+  const portalStarted = startPortal().then((started) => {
+    portal = started;
+  });
   const info = venueInfo(chooseVenue(window.location.search, storedVenue()));
   const hud = createHud(element('#hud', HTMLDivElement), { options: VENUES, current: info.id, tagline: info.tagline, kicks: info.id === 'beaver' });
   const stage = createStage(element('#game', HTMLCanvasElement));
@@ -275,6 +281,7 @@ async function boot(): Promise<void> {
   });
   hud.onHover(() => audio.play('ui-hover', 0.5));
   hud.setReady();
+  void portalStarted.then(() => portal.ready());
   const capture = captureModeOf(window.location.search);
   if (capture) {
     mode = 'racing';
@@ -499,15 +506,24 @@ async function boot(): Promise<void> {
     const frameMs = now - lastFrame;
     lastFrame = now;
     const dt = Math.min(frameMs / 1000, 0.1);
+    const held = portal.paused();
+    audio.hold(held);
+    if (held) {
+      controls.discard();
+      requestAnimationFrame(frame);
+      return;
+    }
     seconds += dt;
 
     const parked = capture === 'wreck' && seconds > CAPTURE.wreckParkSeconds;
     if (parked) camera.setMode('orbit', car);
     const input = parked ? { ...IDLE_INPUT, brake: car.forwardSpeed > 0.5 ? 1 : 0 } : capture === 'cruise' ? cruiseInput(car.lateral, wrapAngle(car.yaw - Math.atan2(sampleAt(track, car.trackIndex).tx, sampleAt(track, car.trackIndex).tz))) : capture ? captureInput(seconds) : controls.read();
     if (controls.consume('Enter')) advance();
-    if (controls.consume('Escape') && (mode === 'racing' || mode === 'countdown')) {
+    const escape = controls.consume('Escape'), menu = controls.consume('KeyP');
+    if ((escape || menu) && (mode === 'racing' || mode === 'countdown')) {
       audio.play('ui-click');
       enterLobby();
+      portal.raceEnded();
     }
     if (controls.consume('KeyM')) hud.toast(hud.toggleMute().muted ? 'Muted' : 'Sound on', 'good');
     if (controls.consume('KeyH')) audio.play('horn', 0.7);

@@ -1,7 +1,8 @@
+import { isPortalMode } from './portal/builds.ts';
+
 export const LOCAL_ASSETS = {
   directory: 'local',
   manifest: 'local/manifest.json',
-  portalMode: 'portal',
 } as const;
 
 export interface LocalManifest {
@@ -29,7 +30,7 @@ export const localCastUrl = (file: string): string => `${LOCAL_ASSETS.directory}
 let pending: Promise<LocalManifest> | null = null;
 
 async function fetchManifest(): Promise<LocalManifest> {
-  if (import.meta.env.MODE === LOCAL_ASSETS.portalMode) return NO_LOCAL_ASSETS;
+  if (isPortalMode(import.meta.env.MODE)) return NO_LOCAL_ASSETS;
   try {
     const response = await fetch(LOCAL_ASSETS.manifest);
     if (!response.ok || !(response.headers.get('content-type') ?? '').includes('json')) return NO_LOCAL_ASSETS;

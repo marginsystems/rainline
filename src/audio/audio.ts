@@ -40,6 +40,7 @@ export interface GameAudio {
   play(name: ShotSound, volume?: number, rate?: number): void;
   music(mood: MusicMood): void;
   setVolume(volume: number, muted: boolean): void;
+  hold(held: boolean): void;
 }
 
 interface LoopVoice {
@@ -66,6 +67,7 @@ export function createAudio(): GameAudio {
   let mood: MusicMood = 'off';
   let volume = 1;
   let muted = false;
+  let held = false;
   let playing: { readonly name: MusicSound; readonly voice: LoopVoice } | null = null;
   let raceTurn = 0;
 
@@ -124,6 +126,10 @@ export function createAudio(): GameAudio {
     playing = { name: wanted, voice };
   }
 
+  function settle(context: AudioContext): void {
+    void (document.hidden || held ? context.suspend() : context.resume());
+  }
+
   async function boot(active: Rig): Promise<void> {
     const local = (await localAssets()).sounds;
     await Promise.all(ALL_SOUNDS.map((name) => load(active.context, name, local)));
@@ -138,7 +144,7 @@ export function createAudio(): GameAudio {
   return {
     unlock() {
       if (rig) {
-        void rig.context.resume();
+        settle(rig.context);
         return;
       }
       const context = new AudioContext();
@@ -153,7 +159,8 @@ export function createAudio(): GameAudio {
         return gain;
       };
       rig = { context, sfx: bus(1), ambience: bus(1), music: bus(MIX.music), master };
-      document.addEventListener('visibilitychange', () => void (document.hidden ? context.suspend() : context.resume()));
+      document.addEventListener('visibilitychange', () => settle(context));
+      settle(context);
       void boot(rig);
     },
     frame(frame) {
@@ -201,6 +208,11 @@ export function createAudio(): GameAudio {
       volume = clamp01(nextVolume);
       muted = nextMuted;
       if (rig) rig.master.gain.setTargetAtTime(muted ? 0 : MIX.master * volume, rig.context.currentTime, MIX.smoothing);
+    },
+    hold(next) {
+      if (next === held) return;
+      held = next;
+      if (rig) settle(rig.context);
     },
   };
 }

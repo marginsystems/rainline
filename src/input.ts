@@ -15,6 +15,7 @@ export interface Controls {
   read(): CarInput;
   look(): LookInput;
   consume(code: string): boolean;
+  discard(): void;
   hold(code: string): void;
   release(code: string): void;
   tap(code: string): void;
@@ -91,6 +92,9 @@ export function createControls(target: Window): Controls {
     },
     consume(code) {
       return pressed.delete(code);
+    },
+    discard() {
+      pressed.clear();
     },
     hold(code) {
       if (!held.has(code)) pressed.add(code);

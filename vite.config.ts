@@ -1,14 +1,13 @@
-import { cpSync } from 'node:fs';
+import { cpSync, writeFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { defineConfig, type Plugin } from 'vite';
+import { bridgeConfigText, PLAYGAMA_BRIDGE, PORTAL_BUILDS, portalBuildOf, withFirstScript } from './src/portal/builds.ts';
 
 const PORTAL = {
-  mode: 'portal',
-  outDir: 'dist-portal',
   privateFolder: 'local',
   siteOnly: ['og.jpg'],
   siteOnlyTags: /\s*<meta (property="og:|name="twitter:)[^>]*>/g,
 } as const;
-
 
 function shipped(portal: boolean, source: string): boolean {
   const parts = source.replace(/\\/g, '/').split('/');
@@ -18,22 +17,24 @@ function shipped(portal: boolean, source: string): boolean {
   return !portal || !PORTAL.siteOnly.some((file) => file === name);
 }
 
-function copyPublic(portal: boolean, outDir: string): Plugin {
+function copyPublic(portal: boolean, playgama: boolean, outDir: string): Plugin {
   return {
     name: 'copy-public',
     apply: 'build',
     writeBundle() {
       cpSync('public', outDir, { recursive: true, filter: (source) => shipped(portal, source) });
+      if (playgama) writeFileSync(join(outDir, PLAYGAMA_BRIDGE.config), bridgeConfigText());
     },
     transformIndexHtml(html) {
-      return portal ? html.replace(PORTAL.siteOnlyTags, '') : html;
+      const page = portal ? html.replace(PORTAL.siteOnlyTags, '') : html;
+      return playgama ? withFirstScript(page, PLAYGAMA_BRIDGE.script) : page;
     },
   };
 }
 
 export default defineConfig(({ mode }) => {
-  const portal = mode === PORTAL.mode;
-  const outDir = portal ? PORTAL.outDir : 'dist';
+  const build = portalBuildOf(mode);
+  const outDir = build ? build.outDir : 'dist';
   return {
     base: './',
     server: { port: 5183, open: false },
@@ -43,6 +44,6 @@ export default defineConfig(({ mode }) => {
       outDir,
       copyPublicDir: false,
     },
-    plugins: [copyPublic(portal, outDir)],
+    plugins: [copyPublic(build !== null, build?.mode === PORTAL_BUILDS.playgama.mode, outDir)],
   };
 });
