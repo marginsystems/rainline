@@ -1,0 +1,126 @@
+[
+  {
+    "name": "wheelSpoke",
+    "minWidthMetres": 0.024
+  },
+  {
+    "name": "wheelSpokeDepth",
+    "minWidthMetres": 0.028
+  },
+  {
+    "name": "wheelSpokeGap",
+    "minWidthMetres": 0.01313
+  },
+  {
+    "name": "accentRimLip",
+    "minWidthMetres": 0.015
+  },
+  {
+    "name": "wheelHubCap",
+    "minWidthMetres": 0.104
+  },
+  {
+    "name": "brakeDisc",
+    "minWidthMetres": 0.016
+  },
+  {
+    "name": "brakeCaliper",
+    "minWidthMetres": 0.056
+  },
+  {
+    "name": "tyreSidewall",
+    "minWidthMetres": 0.012
+  },
+  {
+    "name": "accentBelt",
+    "minWidthMetres": 0.014
+  },
+  {
+    "name": "rubStrip",
+    "minWidthMetres": 0.013
+  },
+  {
+    "name": "doorLine",
+    "minWidthMetres": 0.013
+  },
+  {
+    "name": "hoodLine",
+    "minWidthMetres": 0.012
+  },
+  {
+    "name": "doorHandle",
+    "minWidthMetres": 0.03
+  },
+  {
+    "name": "exhaustWall",
+    "minWidthMetres": 0.012
+  },
+  {
+    "name": "fuelFlapSeam",
+    "minWidthMetres": 0.012
+  },
+  {
+    "name": "lipSpoiler",
+    "minWidthMetres": 0.035
+  },
+  {
+    "name": "popupLampBezel",
+    "minWidthMetres": 0.016
+  },
+  {
+    "name": "indicator",
+    "minWidthMetres": 0.034
+  },
+  {
+    "name": "tailDivider",
+    "minWidthMetres": 0.014
+  },
+  {
+    "name": "tailRib",
+    "minWidthMetres": 0.033
+  },
+  {
+    "name": "sideMarker",
+    "minWidthMetres": 0.03
+  },
+  {
+    "name": "plateFrame",
+    "minWidthMetres": 0.016
+  },
+  {
+    "name": "noseBadgePeak",
+    "minWidthMetres": 0.0163
+  },
+  {
+    "name": "wiperBlade",
+    "minWidthMetres": 0.014
+  },
+  {
+    "name": "mirrorStalk",
+    "minWidthMetres": 0.035
+  },
+  {
+    "name": "windscreenFrame",
+    "minWidthMetres": 0.035
+  },
+  {
+    "name": "hatchFrame",
+    "minWidthMetres": 0.035
+  },
+  {
+    "name": "bPillar",
+    "minWidthMetres": 0.1
+  },
+  {
+    "name": "wordmarkStroke",
+    "minWidthMetres": 0.01611
+  },
+  {
+    "name": "modelStroke",
+    "minWidthMetres": 0.01438
+  },
+  {
+    "name": "plateTextStroke",
+    "minWidthMetres": 0.01586
+  }
+]
