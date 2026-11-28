@@ -1,10 +1,11 @@
 import * as THREE from 'three';
-import { CAR, createCar, IDLE_INPUT, moveAlongTrack, repairCar, resetToTrack, stepCar, type CarInput } from '../sim/car.ts';
+import { CAR, createCar, IDLE_INPUT, moveAlongTrack, repairCar, resetToTrack, stepCar, strikeCar, type CarInput } from '../sim/car.ts';
+import { createCrowd, kickCrowd, resetCrowd, stepCrowd, type Bonk, type Crowd } from '../sim/crowd.ts';
 import { createDriftScore, stepDriftScore } from '../sim/drift-score.ts';
 import { clamp, damp, lerp, smoothstep, wrapAngle } from '../sim/math.ts';
 import { createRace, formatLapTime, stepRace } from '../sim/race.ts';
 import { locate, sampleAt } from '../sim/track.ts';
-import { bumpRider, createTraffic, kickTraffic, stepTraffic, type Launch } from '../sim/traffic.ts';
+import { bumpRider, createTraffic, kickTraffic, ramTraffic, stepTraffic, TRAFFIC, type Launch, type Rammer, type Traffic } from '../sim/traffic.ts';
 import { createAudio, MIX } from './audio/audio.ts';
 import { MEME_AIRHORNS, MEME_BOINGS, MEME_CRASHES, MEME_FANFARES, MEME_HORNS, MEME_KICKS, MEME_OUCHES, MEME_VOCALS, MEME_WHISTLES, MEME_WHOOSHES } from './audio/sounds.ts';
 import { CAPTURE, captureInput, captureModeOf, captureStartMetres, cruiseInput } from './capture-mode.ts';
@@ -46,6 +47,8 @@ const PERF_READOUT_SECONDS = 0.5;
 const MEME = {
   cheers: ['YEET', 'BONK', 'SEE YA', 'GET DAMMED', 'TIMBER', 'BEAVER KICK'],
   names: { car: 'car', van: 'van', truck: 'truck', bus: 'BUS' },
+  bystander: 'BYSTANDER',
+  bonks: { kick: ['BONK', 'YEET', 'SEE YA', 'BEAVER KICK'], wreck: ['COLLATERAL'], ridden: ['STRIKE', 'BOWLED'] },
   bumpCooldownSeconds: 0.7,
   confetti: [[3.4, 0.5, 1.6], [3.2, 2.6, 0.3], [0.3, 2.4, 3.4], [0.6, 3.2, 0.7], [3.4, 1.3, 0.2], [2.2, 1, 3.4]],
   confettiPieces: 46,
@@ -135,7 +138,7 @@ async function boot(): Promise<void> {
   try {
     rider = info.id === 'beaver' ? await loadRider() : null;
     carVisual = rider ?? await loadCar();
-    trafficView = rider ? await loadTrafficView() : null;
+    trafficView = info.traffic === 'none' ? null : await loadTrafficView();
   } catch (error) {
     console.error(error);
     hud.toast('Could not load the models. Reload to try again.', 'bad');
@@ -178,14 +181,15 @@ async function boot(): Promise<void> {
   const governor = createQualityGovernor();
   const point = new THREE.Vector3();
   let castRequested = false;
+  let crowd: Crowd | null = null;
 
   function requestCast(): void {
     castRequested = true;
-    void loadRoadsideCast(track).then((loaded) => {
+    void loadRoadsideCast().then((loaded) => {
       cast = loaded;
+      crowd = createCrowd(loaded.paces, track.wallOffset, car.distance, Math.random);
       stage.scene.add(loaded.group);
       loaded.group.visible = tierAt(governor.level).roadsideCast;
-      loaded.reset(car.distance);
     }).catch((error: unknown) => console.error(error));
   }
 
@@ -227,7 +231,17 @@ async function boot(): Promise<void> {
   let wreckDebt = 0;
   let exhaustDebt = 0;
   let perfDue = 0;
-  let traffic = rider ? createTraffic(car.distance, Math.random) : null;
+  const freshTraffic = (): Traffic | null => {
+    switch (info.traffic) {
+      case 'none':
+        return null;
+      case 'kicks':
+        return createTraffic(car.distance, Math.random);
+      case 'ram':
+        return createTraffic(car.distance, Math.random, TRAFFIC.lightCount);
+    }
+  };
+  let traffic = freshTraffic();
   let bumpRest = 0;
   let captureKickDue = 0;
 
@@ -242,8 +256,8 @@ async function boot(): Promise<void> {
     car = createCar(track);
     race = createRace();
     drift = createDriftScore();
-    traffic = rider ? createTraffic(car.distance, Math.random) : null;
-    cast?.reset(car.distance);
+    traffic = freshTraffic();
+    if (crowd) resetCrowd(crowd, car.distance, Math.random);
     previous = { x: car.x, z: car.z, yaw: car.yaw };
     accumulator = 0;
     mend();
@@ -289,7 +303,7 @@ async function boot(): Promise<void> {
     const startMetres = captureStartMetres(window.location.search);
     if (startMetres > 0) {
       moveAlongTrack(car, track, startMetres);
-      traffic = rider ? createTraffic(car.distance, Math.random) : null;
+      traffic = freshTraffic();
       previous = { x: car.x, z: car.z, yaw: car.yaw };
     }
     camera.setMode('chase', car);
@@ -340,20 +354,62 @@ async function boot(): Promise<void> {
     hud.toast(`${word}  ${MEME.names[vehicle.kind]}  +${launch.points.toLocaleString('en-US')}${launch.combo > 1 ? `  ×${launch.combo}` : ''}`, launch.combo > 2 || heavy ? 'best' : 'good');
   }
 
+  function cheerBonk(bonk: Bonk): void {
+    drift.total += bonk.points;
+    const body = bonk.walker.body;
+    const sample = sampleAt(track, Math.round(body.position.z / track.spacing));
+    const hitX = sample.x + sample.nx * body.position.x, hitZ = sample.z + sample.nz * body.position.x;
+    for (let i = 0; i < MEME.confettiPieces / 2; i++) burst(confetti, hitX, body.position.y, hitZ, 1, 10, anyOf(MEME.confetti) ?? MEME.confetti[0]);
+    pops?.show(hitX, MEME.popHeight, hitZ);
+    audio.play(anyOf(MEME_KICKS) ?? 'meme-kick-1', 0.9, 1 + Math.random() * 0.3);
+    audio.play(anyOf(MEME_BOINGS) ?? 'meme-boing-1', 0.6);
+    if (Math.random() < MEME.vocalChance) audio.play(anyOf(MEME_VOCALS) ?? 'meme-vocal-1', 0.7);
+    if (bonk.combo === MEME.airhornFromCombo) audio.play(anyOf(MEME_AIRHORNS) ?? 'meme-airhorn', 0.7);
+    if (bonk.combo === MEME.fanfareFromCombo) audio.play(anyOf(MEME_FANFARES) ?? 'meme-fanfare', 0.8);
+    camera.shake(0.2);
+    hud.driftBanked();
+    const word = anyOf(MEME.bonks[bonk.cause]) ?? 'BONK';
+    hud.toast(`${word}  ${MEME.bystander}  +${bonk.points.toLocaleString('en-US')}${bonk.combo > 1 ? `  ×${bonk.combo}` : ''}`, bonk.combo > 2 ? 'best' : 'good');
+  }
+
+  const crowdInPlay = (): Crowd | null => (cast?.group.visible ? crowd : null);
+
   function kick(side: 1 | -1): void {
     if (!rider || !traffic) return;
     rider.kick(side);
     const launch = kickTraffic(traffic, car.distance, car.lateral, side);
+    const people = launch ? null : crowdInPlay();
+    const bonk = people ? kickCrowd(people, traffic, car, side) : null;
     if (launch) cheer(launch);
+    else if (bonk) cheerBonk(bonk);
     else {
       audio.play(anyOf(MEME_WHOOSHES) ?? 'meme-whoosh', 0.6, 0.9 + Math.random() * 0.3);
       audio.play('tyre-chirp', 0.12, MEME.whiffPitch);
     }
   }
 
+  function ram(wrecksOnly: boolean): void {
+    if (!traffic) return;
+    const along = sampleAt(track, car.trackIndex);
+    const rammer: Rammer = { distance: car.distance, lateral: car.lateral, tx: along.tx, tz: along.tz, ...(rider ? TRAFFIC.rammer.rider : TRAFFIC.rammer.car), vx: car.vx, vz: car.vz };
+    const hit = ramTraffic(traffic, rammer, wrecksOnly);
+    if (!hit) return;
+    car.vx = rammer.vx;
+    car.vz = rammer.vz;
+    strikeCar(car, hit.impact, hit.nx, hit.nz);
+  }
+
   function simulateTraffic(): void {
     if (!traffic) return;
-    for (const launch of stepTraffic(traffic, car.distance, STEP, Math.random)) cheer(launch);
+    const launches = stepTraffic(traffic, car.distance, STEP, Math.random, venue.terrain);
+    for (const launch of launches) cheer(launch);
+    if (info.traffic !== 'kicks') {
+      ram(false);
+      return;
+    }
+    const people = crowdInPlay();
+    if (people) for (const bonk of stepCrowd(people, traffic, car, STEP, Math.random, venue.terrain)) cheerBonk(bonk);
+    ram(true);
     bumpRest = Math.max(0, bumpRest - STEP);
     if (!bumpRider(traffic, car) || bumpRest > 0) return;
     bumpRest = MEME.bumpCooldownSeconds;
@@ -583,8 +639,8 @@ async function boot(): Promise<void> {
     const wallAhead = Math.abs(towardWall) < 0.05 ? Number.POSITIVE_INFINITY : (track.wallOffset - Math.sign(towardWall) * car.lateral) / Math.abs(towardWall);
     carVisual.update(car, driving, wallAhead, dt);
     carVisual.damage.update(dt);
-    if (traffic && trafficView) trafficView.update(traffic, track);
-    if (cast?.group.visible) cast.update(track, car.distance, dt);
+    if (traffic && trafficView) trafficView.update(traffic, track, alpha);
+    if (cast?.group.visible && crowd) cast.update(track, crowd, alpha, dt);
     carVisual.root.updateMatrixWorld(true);
     emit(dt, driving);
     smoke.update(dt);
@@ -633,7 +689,7 @@ async function boot(): Promise<void> {
       driftMultiplier: drift.multiplier,
       driftActive: drift.active,
       total: drift.total,
-      bestDrift: traffic ? traffic.kicked : drift.best,
+      bestDrift: traffic && info.traffic === 'kicks' ? traffic.kicked : drift.best,
     }, dt);
 
     audio.frame({

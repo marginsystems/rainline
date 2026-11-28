@@ -6,9 +6,9 @@ An arcade drifting game in the browser, on Three.js and TypeScript. Two tracks i
 
 Open source under the MIT licence. Every asset in this repository is CC0, CC BY 4.0 or made for the game; see [ASSETS.md](ASSETS.md).
 
-- **Coast Highway** (the default): a 6.4 km loop of mostly straight road under grey daylight, along a wooded coast, through two tiled tunnels and over a suspension bridge.
+- **Coast Highway** (the default): a 6.4 km loop of mostly straight road under grey daylight, along a wooded coast, through two tiled tunnels and over a suspension bridge, with light traffic in four lanes. Hit a car and it is shoved on as a wreck; hit a bus and you bounce off it.
 - **Night Circuit**: a twisty 2.1 km circuit under a city skyline.
-- **Beaver Run**: the meme mode. A Shiba Inu on a motorbike rides the coast highway through traffic. Z swipes left and C swipes right; a kicked car, van, truck or bus tumbles off the road in a burst of confetti, knocks over whatever it lands on, and scores. Quick kicks build a combo. On the hosted game fourteen characters line the road, among them a skateboarding granny, a clown doing the chicken dance and a zombie dancing Thriller (see [Private assets](#private-assets)).
+- **Beaver Run**: the meme mode. A Shiba Inu on a motorbike rides the coast highway through traffic. Z swipes left and C swipes right; a kicked car, van, truck or bus tumbles off the road in a burst of confetti, rolls over the guardrail or lands on the next lane's traffic and knocks it over, and scores. Wrecks stay on the road, and the traffic behind brakes for them or piles into them. Quick kicks build a combo. On the hosted game fourteen characters line the road, and they can be kicked, hit by a flying wreck or ridden into too, among them a skateboarding granny, a clown doing the chicken dance and a zombie dancing Thriller (see [Private assets](#private-assets)).
 
 Pick the track in the lobby, or open `/?track=coast`, `/?track=city` or `/?track=beaver`.
 
@@ -148,7 +148,7 @@ npx wrangler deploy
 
 | Folder | What is in it |
 |---|---|
-| `sim/` | The rules, with no Three.js and no DOM: the track spline, the car's handling, drift scoring, lap timing, and the Beaver Run traffic and kicks. Fixed 120 Hz step. |
+| `sim/` | The rules, with no Three.js and no DOM: the track spline, the car's handling, drift scoring, lap timing, the traffic, the box physics that wrecks and kicked pedestrians tumble by, and the Beaver Run kicks. Fixed 120 Hz step. |
 | `src/render/` | Renderer and post-processing: quality tiers, MSAA, ambient occlusion, bloom, the lens pass with its raindrops, the planar reflection for the wet road, the overcast day sky and the night sky. |
 | `src/world/` | What is drawn. `venue.ts` lists the tracks; `coast/` builds the highway (road, guardrails, hillside, power lines, tunnels, bridge) and `city-venue.ts` the night circuit (walls, lamps, arches, trees, skyline). Also the car model and its dents. |
 | `src/fx/` | Rain, smoke, sparks, nitro flames, skid marks, crash debris. |

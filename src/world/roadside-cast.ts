@@ -1,8 +1,9 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { clone as cloneSkinned } from 'three/examples/jsm/utils/SkeletonUtils.js';
-import { mod } from '../../sim/math.ts';
-import { sampleAt, type Track } from '../../sim/track.ts';
+import { baseOf, poseAt, vec, type Pose } from '../../sim/body.ts';
+import type { Crowd } from '../../sim/crowd.ts';
+import { frameAlong, type Track, type TrackFrame } from '../../sim/track.ts';
 import { localAssets, localCastUrl } from '../local-assets.ts';
 
 export const CAST = {
@@ -23,10 +24,6 @@ export const CAST = {
     { file: 'doozy-run', metresPerSecond: 5.5, facesRoad: false, board: false, scale: 1 },
   ],
   copiesEach: 1,
-  shoulderBeyondWall: -0.75,
-  spawnAhead: [90, 520],
-  firstSpawnAhead: [25, 520],
-  dropBehind: 45,
   boardSize: [0.24, 0.03, 0.82],
   boardHeight: 0.11,
   boardColour: 0xc2412d,
@@ -37,16 +34,13 @@ export const CAST = {
 interface Performer {
   readonly object: THREE.Object3D;
   readonly mixer: THREE.AnimationMixer;
-  readonly metresPerSecond: number;
   readonly facesRoad: boolean;
-  distance: number;
-  side: number;
 }
 
 export interface RoadsideCast {
   readonly group: THREE.Group;
-  reset(riderDistance: number): void;
-  update(track: Track, riderDistance: number, dt: number): void;
+  readonly paces: readonly number[];
+  update(track: Track, crowd: Crowd, alpha: number, dt: number): void;
 }
 
 function skateboard(): THREE.Group {
@@ -66,10 +60,11 @@ function skateboard(): THREE.Group {
   return board;
 }
 
-export async function loadRoadsideCast(track: Track): Promise<RoadsideCast> {
+export async function loadRoadsideCast(): Promise<RoadsideCast> {
   const group = new THREE.Group();
   const loader = new GLTFLoader();
   const performers: Performer[] = [];
+  const paces: number[] = [];
   const local = (await localAssets()).cast;
   const files = await Promise.all(
     CAST.performers.map((performer) =>
@@ -101,33 +96,30 @@ export async function loadRoadsideCast(track: Track): Promise<RoadsideCast> {
       action.time = Math.random() * clip.duration;
       action.play();
       group.add(object);
-      performers.push({ object, mixer, metresPerSecond: spec.metresPerSecond, facesRoad: spec.facesRoad, distance: 0, side: 1 });
+      performers.push({ object, mixer, facesRoad: spec.facesRoad });
+      paces.push(spec.metresPerSecond);
     }
   });
-  const shoulder = track.wallOffset + CAST.shoulderBeyondWall;
-
-  function place(performer: Performer, riderDistance: number, range: readonly [number, number]): void {
-    performer.distance = riderDistance + range[0] + (range[1] - range[0]) * Math.random();
-    performer.side = Math.random() < 0.5 ? -1 : 1;
-  }
+  const pose: Pose = { position: vec(0, 0, 0), rotation: { x: 0, y: 0, z: 0, w: 1 } };
+  const frame: TrackFrame = { x: 0, z: 0, tx: 0, tz: 1, nx: 1, nz: 0 };
+  const up = new THREE.Vector3(0, 1, 0), tilt = new THREE.Quaternion(), facing = new THREE.Quaternion();
 
   return {
     group,
-    reset(riderDistance) {
-      for (const performer of performers) place(performer, riderDistance, CAST.firstSpawnAhead);
-    },
-    update(liveTrack, riderDistance, dt) {
-      for (const performer of performers) {
-        performer.distance += performer.metresPerSecond * dt;
-        const ahead = performer.distance - riderDistance;
-        if (ahead < -CAST.dropBehind || ahead > CAST.spawnAhead[1] * 1.4) place(performer, riderDistance, CAST.spawnAhead);
-        const sample = sampleAt(liveTrack, mod(Math.round(performer.distance / liveTrack.spacing), liveTrack.samples.length));
-        const lateral = performer.side * shoulder;
-        performer.object.position.set(sample.x + sample.nx * lateral, 0, sample.z + sample.nz * lateral);
-        const along = Math.atan2(sample.tx, sample.tz);
-        performer.object.rotation.y = performer.facesRoad ? along - performer.side * Math.PI / 2 : along;
+    paces,
+    update(track, crowd, alpha, dt) {
+      performers.forEach((performer, index) => {
+        const walker = crowd.walkers[index];
+        performer.object.visible = walker !== undefined;
+        if (!walker) return;
+        poseAt(walker.body, alpha, pose);
+        const base = baseOf(pose, walker.body.half);
+        frameAlong(track, base.z, frame);
+        performer.object.position.set(frame.x + frame.nx * base.x, base.y, frame.z + frame.nz * base.x);
+        facing.setFromAxisAngle(up, performer.facesRoad ? -walker.side * Math.PI / 2 : 0);
+        performer.object.quaternion.setFromAxisAngle(up, Math.atan2(frame.tx, frame.tz)).multiply(tilt.set(pose.rotation.x, pose.rotation.y, pose.rotation.z, pose.rotation.w)).multiply(facing);
         performer.mixer.update(dt);
-      }
+      });
     },
   };
 }

@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { FLAT_TERRAIN } from '../../sim/body.ts';
 import { buildTrack } from '../../sim/track.ts';
 import { createNightSky } from '../render/night-sky.ts';
 import type { Stage } from '../render/stage.ts';
@@ -28,6 +29,7 @@ export function buildCityVenue(info: VenueInfo, stage: Stage): Venue {
     group,
     overlays: [...meshes.overlays, ...scenery.overlays, ...forest.foliage],
     rainColour: CITY.rainColour,
+    terrain: FLAT_TERRAIN,
     update(view) {
       scenery.update(view.x, view.z, view.trackIndex);
       return 0;

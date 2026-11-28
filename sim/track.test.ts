@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { buildTrack, COAST_HIGHWAY, DUSK_CIRCUIT, locate, minimumRadius, pointOnTrack, sampleAt, type TrackLayout } from './track.ts';
+import { buildTrack, COAST_HIGHWAY, DUSK_CIRCUIT, frameAlong, locate, minimumRadius, pointOnTrack, sampleAt, type TrackLayout } from './track.ts';
 
 const LAYOUTS: readonly (readonly [string, TrackLayout])[] = [['night circuit', DUSK_CIRCUIT], ['coast highway', COAST_HIGHWAY]];
 
@@ -52,4 +52,22 @@ test('the coast highway is mostly straight road with two wide sweeping ends', ()
   assert.ok(nearlyStraight > 0.6, `${(nearlyStraight * 100).toFixed(0)}% straight`);
   assert.ok(minimumRadius(track) > 200, `tightest radius ${minimumRadius(track)}`);
   assert.ok(track.length > 5500);
+});
+
+test('frameAlong moves smoothly between samples instead of jumping from one to the next', () => {
+  const track = buildTrack(COAST_HIGHWAY);
+  const frame = { x: 0, z: 0, tx: 0, tz: 0, nx: 0, nz: 0 };
+  const a = sampleAt(track, 300), b = sampleAt(track, 301);
+  frameAlong(track, 300.25 * track.spacing, frame);
+  assert.ok(Math.abs(frame.x - (a.x + (b.x - a.x) * 0.25)) < 1e-9 && Math.abs(frame.z - (a.z + (b.z - a.z) * 0.25)) < 1e-9);
+  let last = frameAlong(track, 0, { ...frame }), largest = 0;
+  for (let d = 0.05; d < 200; d += 0.05) {
+    const next = frameAlong(track, d, { ...frame });
+    largest = Math.max(largest, Math.hypot(next.x - last.x, next.z - last.z));
+    last = next;
+  }
+  assert.ok(largest < 0.06, `largest step ${largest}`);
+  frameAlong(track, track.length + 10, frame);
+  const wrapped = frameAlong(track, 10, { ...frame });
+  assert.ok(Math.abs(frame.x - wrapped.x) < 1e-6 && Math.hypot(frame.nx, frame.nz) > 0.999);
 });

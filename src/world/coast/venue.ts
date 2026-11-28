@@ -5,6 +5,7 @@ import { UNREFLECTED_LAYER } from '../../render/reflection.ts';
 import type { Stage } from '../../render/stage.ts';
 import type { Venue, VenueInfo } from '../venue.ts';
 import { BRIDGE, buildBridge } from './bridge.ts';
+import { coastTerrain } from './ground.ts';
 import { buildCoastLand, LAND } from './land.ts';
 import { buildStreetLamps, type LampSpot } from './lamps.ts';
 import { shelterAt, shoreHeight, spansOf, stations } from './plan.ts';
@@ -56,6 +57,7 @@ export function buildCoastVenue(info: VenueInfo, stage: Stage): Venue {
     group,
     overlays: [...highway.overlays, ...land.forest.foliage, ...lamps.overlays, wires.mesh, steel.mesh],
     rainColour: COAST_LOOK.rainColour,
+    terrain: coastTerrain(track),
     update(view) {
       const shelter = shelterAt(track, spans, view.trackIndex);
       sky.setShelter(shelter);

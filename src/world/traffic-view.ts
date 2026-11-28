@@ -1,8 +1,8 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
-import { mod } from '../../sim/math.ts';
-import { sampleAt, type Track } from '../../sim/track.ts';
+import { baseOf, poseAt, vec, type Pose } from '../../sim/body.ts';
+import { frameAlong, type Track, type TrackFrame } from '../../sim/track.ts';
 import { TRAFFIC, type Traffic, type VehicleKind } from '../../sim/traffic.ts';
 
 export const TRAFFIC_LOOK = {
@@ -27,7 +27,7 @@ export const TRAFFIC_LOOK = {
 export interface TrafficView {
   readonly group: THREE.Group;
   readonly glass: readonly THREE.Object3D[];
-  update(traffic: Traffic, track: Track): void;
+  update(traffic: Traffic, track: Track, alpha: number): void;
 }
 
 interface VehicleModel {
@@ -101,21 +101,25 @@ export async function loadTrafficView(): Promise<TrafficView> {
     }));
   }
   const paints = TRAFFIC_LOOK.paints.map((colour) => new THREE.Color(colour));
-  const matrix = new THREE.Matrix4(), position = new THREE.Vector3(), rotation = new THREE.Quaternion(), roll = new THREE.Quaternion(), scale = new THREE.Vector3(1, 1, 1);
-  const up = new THREE.Vector3(0, 1, 0), forward = new THREE.Vector3(0, 0, 1);
+  const matrix = new THREE.Matrix4(), position = new THREE.Vector3(), rotation = new THREE.Quaternion(), tilt = new THREE.Quaternion(), scale = new THREE.Vector3(1, 1, 1);
+  const up = new THREE.Vector3(0, 1, 0);
+  const pose: Pose = { position: vec(0, 0, 0), rotation: { x: 0, y: 0, z: 0, w: 1 } };
+  const frame: TrackFrame = { x: 0, z: 0, tx: 0, tz: 1, nx: 1, nz: 0 };
 
   return {
     group,
     glass,
-    update(traffic, track) {
+    update(traffic, track, alpha) {
       for (const models of looks.values()) for (const model of models) model.count = 0;
       for (const vehicle of traffic.vehicles) {
         const models = looks.get(vehicle.kind) ?? [];
         const model = models[vehicle.palette % (models.length || 1)];
         if (!model) continue;
-        const sample = sampleAt(track, mod(Math.round(vehicle.distance / track.spacing), track.samples.length));
-        position.set(sample.x + sample.nx * vehicle.lateral, Math.max(0, vehicle.height), sample.z + sample.nz * vehicle.lateral);
-        rotation.setFromAxisAngle(up, Math.atan2(sample.tx, sample.tz) + vehicle.spin).multiply(roll.setFromAxisAngle(forward, -vehicle.roll));
+        poseAt(vehicle.body, alpha, pose);
+        const base = baseOf(pose, vehicle.body.half);
+        frameAlong(track, base.z, frame);
+        position.set(frame.x + frame.nx * base.x, base.y, frame.z + frame.nz * base.x);
+        rotation.setFromAxisAngle(up, Math.atan2(frame.tx, frame.tz)).multiply(tilt.set(pose.rotation.x, pose.rotation.y, pose.rotation.z, pose.rotation.w));
         matrix.compose(position, rotation, scale);
         for (const part of model.parts) part.setMatrixAt(model.count, matrix);
         const paint = paints[Math.floor(vehicle.palette / models.length) % paints.length];

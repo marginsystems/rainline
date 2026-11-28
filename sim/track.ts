@@ -131,6 +131,30 @@ export function sampleAt(track: Track, index: number): TrackSample {
   return sample;
 }
 
+export interface TrackFrame {
+  x: number;
+  z: number;
+  tx: number;
+  tz: number;
+  nx: number;
+  nz: number;
+}
+
+export function frameAlong(track: Track, distance: number, into: TrackFrame): TrackFrame {
+  const at = distance / track.spacing;
+  const index = Math.floor(at), t = at - index;
+  const a = sampleAt(track, index), b = sampleAt(track, index + 1);
+  into.x = a.x + (b.x - a.x) * t;
+  into.z = a.z + (b.z - a.z) * t;
+  const tx = a.tx + (b.tx - a.tx) * t, tz = a.tz + (b.tz - a.tz) * t;
+  const n = Math.hypot(tx, tz) || 1;
+  into.tx = tx / n;
+  into.tz = tz / n;
+  into.nx = into.tz;
+  into.nz = -into.tx;
+  return into;
+}
+
 export function locate(track: Track, x: number, z: number, hint: number | null): TrackLocation {
   const n = track.samples.length;
   let best = 0, bestDistance = Number.POSITIVE_INFINITY;

@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { CAR, createCar, gearFor, IDLE_INPUT, repairCar, resetToTrack, stepCar, type CarInput, type CarState } from './car.ts';
+import { CAR, createCar, gearFor, IDLE_INPUT, repairCar, resetToTrack, stepCar, strikeCar, type CarInput, type CarState } from './car.ts';
 import { buildTrack, DUSK_CIRCUIT, sampleAt } from './track.ts';
 
 const track = buildTrack(DUSK_CIRCUIT);
@@ -127,6 +127,19 @@ test('hard wall hits add damage that slows the car until it is repaired', () => 
   assert.ok(wrecked.speed < fresh.speed - 2);
   repairCar(wrecked);
   assert.equal(wrecked.damage, 0);
+});
+
+test('a hit from traffic damages the car like a wall does, and only the hardest hit of a step counts', () => {
+  const car = createCar(track);
+  strikeCar(car, 30, 0, 1);
+  const after = car.damage;
+  assert.ok(after > 0 && car.impact === 30 && car.impactNz === 1);
+  strikeCar(car, 10, 1, 0);
+  assert.equal(car.damage, after);
+  assert.equal(car.impactNz, 1);
+  const brushed = createCar(track);
+  strikeCar(brushed, CAR.damageFreeImpact, 1, 0);
+  assert.equal(brushed.damage, 0);
 });
 
 test('a light brush with the wall does no damage', () => {

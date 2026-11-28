@@ -1,21 +1,25 @@
 import type * as THREE from 'three';
+import type { Terrain } from '../../sim/body.ts';
 import { COAST_HIGHWAY, DUSK_CIRCUIT, type Track, type TrackLayout } from '../../sim/track.ts';
 import type { Sky } from '../render/sky.ts';
 import type { RoadSurface } from './road-material.ts';
 
 export type VenueId = 'coast' | 'city' | 'beaver';
 
+export type TrafficMode = 'none' | 'kicks' | 'ram';
+
 export interface VenueInfo {
   readonly id: VenueId;
   readonly name: string;
   readonly tagline: string;
   readonly layout: TrackLayout;
+  readonly traffic: TrafficMode;
 }
 
 export const VENUES: readonly VenueInfo[] = [
-  { id: 'coast', name: 'Coast Highway', tagline: 'Coast highway · rain, tunnel and bridge', layout: COAST_HIGHWAY },
-  { id: 'city', name: 'Night Circuit', tagline: 'Night circuit · drift for points', layout: DUSK_CIRCUIT },
-  { id: 'beaver', name: 'Beaver Run', tagline: 'Shiba on a bike · Z kicks left, C kicks right', layout: COAST_HIGHWAY },
+  { id: 'coast', name: 'Coast Highway', tagline: 'Coast highway · rain, tunnel and bridge', layout: COAST_HIGHWAY, traffic: 'ram' },
+  { id: 'city', name: 'Night Circuit', tagline: 'Night circuit · drift for points', layout: DUSK_CIRCUIT, traffic: 'none' },
+  { id: 'beaver', name: 'Beaver Run', tagline: 'Shiba on a bike · Z kicks left, C kicks right', layout: COAST_HIGHWAY, traffic: 'kicks' },
 ];
 
 export const DEFAULT_VENUE: VenueId = 'coast';
@@ -39,6 +43,7 @@ export interface Venue {
   readonly group: THREE.Group;
   readonly overlays: THREE.Object3D[];
   readonly rainColour: readonly [number, number, number];
+  readonly terrain: Terrain;
   update(view: VenueView): number;
 }
 

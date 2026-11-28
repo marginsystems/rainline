@@ -191,6 +191,14 @@ function driveAcceleration(input: CarInput, forwardSpeed: number, boosting: bool
   return next;
 }
 
+export function strikeCar(car: CarState, impact: number, nx: number, nz: number): void {
+  if (impact <= car.impact) return;
+  car.impact = impact;
+  car.impactNx = nx;
+  car.impactNz = nz;
+  car.damage = Math.min(1, car.damage + Math.max(0, impact - CAR.damageFreeImpact) * CAR.damagePerImpactSpeed);
+}
+
 function collideWithWalls(car: CarState, track: Track, dt: number): void {
   const limit = track.wallOffset - CAR.bodyRadius;
   car.impact = 0;
@@ -206,10 +214,7 @@ function collideWithWalls(car: CarState, track: Track, dt: number): void {
   car.wallContact = true;
   const outward = car.vx * ox + car.vz * oz;
   if (outward <= 0) return;
-  car.impact = outward;
-  car.impactNx = ox;
-  car.impactNz = oz;
-  car.damage = Math.min(1, car.damage + Math.max(0, outward - CAR.damageFreeImpact) * CAR.damagePerImpactSpeed);
+  strikeCar(car, outward, ox, oz);
   car.vx -= ox * outward * (1 + CAR.wallRestitution);
   car.vz -= oz * outward * (1 + CAR.wallRestitution);
   const scrub = clamp(1 - outward * CAR.wallScrub, 0.6, 1);
